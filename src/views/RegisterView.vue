@@ -1,14 +1,9 @@
 <template>
   <div class="container mt-5" style="max-width: 480px">
-    <h1 class="text-center mb-4">Login Page</h1>
+    <h1 class="text-center mb-4">Register</h1>
 
-    <!-- successful login display -->
-    <div v-if="showSuccess" class="alert alert-success text-center" role="alert">
-      Login successful!
-    </div>
-
-    <!-- login form -->
-    <form @submit.prevent="goToLogin" novalidate>
+    <!-- Register form -->
+    <form @submit.prevent="goToRegister" novalidate>
       <!-- Email -->
       <div class="mb-3">
         <label for="email" class="form-label">Email:</label>
@@ -17,7 +12,6 @@
           class="form-control"
           :class="{ 'is-invalid': emailError }"
           id="email"
-          name="email"
           v-model="email"
           @blur="validateEmail"
           @input="validateEmail"
@@ -34,7 +28,6 @@
           class="form-control"
           :class="{ 'is-invalid': passwordError }"
           id="password"
-          name="password"
           v-model="password"
           @blur="validatePassword"
           @input="validatePassword"
@@ -43,41 +36,53 @@
         <div class="invalid-feedback">{{ passwordError }}</div>
       </div>
 
-      <!-- login button -->
+      <!-- Confirm Password -->
+      <div class="mb-3">
+        <label for="confirmPassword" class="form-label">Confirm Password:</label>
+        <input
+          type="password"
+          class="form-control"
+          :class="{ 'is-invalid': confirmPasswordError }"
+          id="confirmPassword"
+          v-model="confirmPassword"
+          @blur="validateConfirmPassword"
+          @input="validateConfirmPassword"
+          required
+        />
+        <div class="invalid-feedback">{{ confirmPasswordError }}</div>
+      </div>
+
+      <!-- Register button -->
       <div class="d-grid gap-2 mb-3">
-        <button type="submit" class="btn btn-primary">Login</button>
+        <button type="submit" class="btn btn-success">Register</button>
+      </div>
+
+      <router-link to="/" class="btn btn-outline-primary mt-3 d-block text-center">Back to Login</router-link>
+
+
+      <!-- Success Alert -->
+      <div v-if="showSuccess" class="alert alert-success text-center">
+        Registration successful!
       </div>
     </form>
-
-    <!-- register buttons -->
-    <div class="d-flex flex-column flex-md-row justify-content-center align-items-center gap-3 mt-3">
-      <div class="text-center">
-        <p class="mb-1">Haven't Email?</p>
-        <button class="btn btn-outline-secondary">Click to Register</button>
-      </div>
-      <div class="text-center">
-        <p class="mb-1">Forget Password?</p>
-        <button class="btn btn-outline-danger">Click to Fix</button>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 
-// Form field
+// form fields
 const email = ref('')
 const password = ref('')
+const confirmPassword = ref('')
 
-// error message
+// error messages
 const emailError = ref('')
 const passwordError = ref('')
-
-// Show success message when login is successful
+const confirmPasswordError = ref('')
 const showSuccess = ref(false)
 
-// Validate Email
+// validations
 const validateEmail = () => {
   const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
   if (!email.value) {
@@ -89,11 +94,9 @@ const validateEmail = () => {
   }
 }
 
-// Validate Password
 const validatePassword = () => {
   const hasNumber = /\d/
   const hasWhitespace = /\s/
-
   if (!password.value) {
     passwordError.value = 'Password is required.'
   } else if (hasWhitespace.test(password.value)) {
@@ -107,19 +110,27 @@ const validatePassword = () => {
   }
 }
 
-// login logic
-const goToLogin = () => {
+const validateConfirmPassword = () => {
+  if (!confirmPassword.value) {
+    confirmPasswordError.value = 'Please confirm your password.'
+  } else if (confirmPassword.value !== password.value) {
+    confirmPasswordError.value = 'Passwords do not match.'
+  } else {
+    confirmPasswordError.value = ''
+  }
+}
+
+// register handler
+const goToRegister = () => {
   validateEmail()
   validatePassword()
+  validateConfirmPassword()
 
-  if (!emailError.value && !passwordError.value) {
+  if (!emailError.value && !passwordError.value && !confirmPasswordError.value) {
     showSuccess.value = true
     setTimeout(() => {
       showSuccess.value = false
     }, 3000)
-  } else {
-    showSuccess.value = false
-    console.log('Validation failed.')
   }
 }
 </script>
