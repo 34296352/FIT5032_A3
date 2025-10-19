@@ -2,6 +2,16 @@
   <div class="container mt-5" style="max-width: 480px">
     <h1 class="text-center mb-4">Register</h1>
 
+    <!-- Success Alert -->
+    <div v-if="showSuccess" class="alert alert-success text-center">
+      Registration successful!
+    </div>
+
+    <!-- Firebase Error -->
+    <div v-if="firebaseError" class="alert alert-danger text-center">
+      {{ firebaseError }}
+    </div>
+
     <!-- Register form -->
     <form @submit.prevent="goToRegister" novalidate>
       <!-- Email -->
@@ -57,19 +67,18 @@
         <button type="submit" class="btn btn-success">Register</button>
       </div>
 
-      <router-link to="/" class="btn btn-outline-primary mt-3 d-block text-center">Back to Login</router-link>
-
-
-      <!-- Success Alert -->
-      <div v-if="showSuccess" class="alert alert-success text-center">
-        Registration successful!
-      </div>
+      <!-- Back to Login -->
+      <router-link to="/" class="btn btn-outline-primary mt-3 d-block text-center">
+        Back to Login
+      </router-link>
     </form>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
+import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { auth } from '@/firebase' 
 
 // form fields
 const email = ref('')
@@ -80,6 +89,7 @@ const confirmPassword = ref('')
 const emailError = ref('')
 const passwordError = ref('')
 const confirmPasswordError = ref('')
+const firebaseError = ref('')
 const showSuccess = ref(false)
 
 // validations
@@ -100,7 +110,7 @@ const validatePassword = () => {
   if (!password.value) {
     passwordError.value = 'Password is required.'
   } else if (hasWhitespace.test(password.value)) {
-    passwordError.value = 'Password cannot contain illegal characters (e.g., spaces).'
+    passwordError.value = 'Password cannot contain spaces.'
   } else if (password.value.length < 6) {
     passwordError.value = 'Password must be at least 6 characters.'
   } else if (!hasNumber.test(password.value)) {
@@ -120,21 +130,25 @@ const validateConfirmPassword = () => {
   }
 }
 
-// register handler
-const goToRegister = () => {
+const goToRegister = async () => {
   validateEmail()
   validatePassword()
   validateConfirmPassword()
+  firebaseError.value = ''
 
   if (!emailError.value && !passwordError.value && !confirmPasswordError.value) {
-    showSuccess.value = true
-    setTimeout(() => {
-      showSuccess.value = false
-    }, 3000)
+    try {
+      await createUserWithEmailAndPassword(auth, email.value, password.value)
+      showSuccess.value = true
+      email.value = ''
+      password.value = ''
+      confirmPassword.value = ''
+    } catch (err) {
+      firebaseError.value = err.message
+    }
   }
 }
 </script>
 
 <style scoped>
-
 </style>
