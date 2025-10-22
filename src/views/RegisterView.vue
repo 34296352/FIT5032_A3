@@ -2,73 +2,83 @@
   <div class="container mt-5" style="max-width: 480px">
     <h1 class="text-center mb-4">Register</h1>
 
-    <!-- Success Alert -->
     <div v-if="showSuccess" class="alert alert-success text-center">
       Registration successful!
     </div>
 
-    <!-- Firebase Error -->
     <div v-if="firebaseError" class="alert alert-danger text-center">
       {{ firebaseError }}
     </div>
 
-    <!-- Register form -->
     <form @submit.prevent="goToRegister" novalidate>
-      <!-- Email -->
       <div class="mb-3">
-        <label for="email" class="form-label">Email:</label>
+        <label :for="emailId" class="form-label">Email:</label>
         <input
+          :id="emailId"
           type="email"
           class="form-control"
           :class="{ 'is-invalid': emailError }"
-          id="email"
-          v-model="email"
+          name="email"
+          v-model.trim="email"
           @blur="validateEmail"
-          @input="validateEmail"
+          @input="onEmailInput"
+          autocomplete="email"
+          inputmode="email"
           required
         />
         <div class="invalid-feedback">{{ emailError }}</div>
+        <div v-if="checkingEmail && !emailError" class="form-text">Checking email…</div>
       </div>
 
-      <!-- Password -->
       <div class="mb-3">
-        <label for="password" class="form-label">Password:</label>
+        <label :for="passwordId" class="form-label">Password:</label>
         <input
+          :id="passwordId"
           type="password"
           class="form-control"
           :class="{ 'is-invalid': passwordError }"
-          id="password"
+          name="password"
           v-model="password"
           @blur="validatePassword"
           @input="validatePassword"
+          autocomplete="new-password"
           required
+          aria-describedby="pwdHelp"
         />
         <div class="invalid-feedback">{{ passwordError }}</div>
+        <div id="pwdHelp" class="form-text">At least 6 characters and include a number. No spaces.</div>
       </div>
 
-      <!-- Confirm Password -->
       <div class="mb-3">
-        <label for="confirmPassword" class="form-label">Confirm Password:</label>
+        <label :for="confirmId" class="form-label">Confirm Password:</label>
         <input
+          :id="confirmId"
           type="password"
           class="form-control"
           :class="{ 'is-invalid': confirmPasswordError }"
-          id="confirmPassword"
+          name="confirmPassword"
           v-model="confirmPassword"
           @blur="validateConfirmPassword"
           @input="validateConfirmPassword"
+          autocomplete="new-password"
           required
         />
         <div class="invalid-feedback">{{ confirmPasswordError }}</div>
       </div>
 
-      <!-- Register button -->
       <div class="d-grid gap-2 mb-3">
-        <button type="submit" class="btn btn-success">Register</button>
+        <button
+          type="submit"
+          name="register"
+          class="btn btn-success"
+          :disabled="checkingEmail || submitting"
+        >
+          <span v-if="submitting" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          Register
+        </button>
       </div>
 
-      <!-- Back to Login -->
-      <router-link to="/" class="btn btn-outline-primary mt-3 d-block text-center">
+      <router-link to="/" class="btn btn-outline-primary mt-3 d-block text-center" aria-label="Back to Login">
         Back to Login
       </router-link>
     </form>
@@ -77,30 +87,70 @@
 
 <script setup>
 import { ref } from 'vue'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '@/firebase' 
+import { createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from 'firebase/auth'
+import { auth, db } from '@/firebase'
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { useRouter } from 'vue-router'
 
-// form fields
+const router = useRouter()
+
+const uidSuffix = Math.random().toString(36).slice(2, 8)
+const emailId = `reg-email-${uidSuffix}`
+const passwordId = `reg-password-${uidSuffix}`
+const confirmId = `reg-confirm-${uidSuffix}`
+
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 
-// error messages
 const emailError = ref('')
 const passwordError = ref('')
 const confirmPasswordError = ref('')
 const firebaseError = ref('')
 const showSuccess = ref(false)
+const checkingEmail = ref(false)
+const submitting = ref(false)
 
-// validations
-const validateEmail = () => {
-  const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
+const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i
+
+const validateEmailFormat = () => {
   if (!email.value) {
     emailError.value = 'Email is required.'
-  } else if (!emailRegex.test(email.value)) {
+    return false
+  }
+  if (!emailRegex.test(email.value)) {
     emailError.value = 'Invalid email format.'
-  } else {
+    return false
+  }
+  return true
+}
+
+const validateEmail = async () => {
+  firebaseError.value = ''
+  if (!validateEmailFormat()) return
+  await checkEmailExists()
+}
+
+const onEmailInput = async () => {
+  if (validateEmailFormat()) {
     emailError.value = ''
+    await checkEmailExists()
+  }
+}
+
+const checkEmailExists = async () => {
+  checkingEmail.value = true
+  try {
+    const methods = await fetchSignInMethodsForEmail(auth, email.value)
+    if (methods.length > 0) {
+      emailError.value = 'This email is already registered.'
+    } else if (emailError.value === 'This email is already registered.') {
+      emailError.value = ''
+    }
+  } catch (e) {
+    console.warn('checkEmailExists error:', e)
+  } finally {
+    checkingEmail.value = false
   }
 }
 
@@ -131,21 +181,42 @@ const validateConfirmPassword = () => {
 }
 
 const goToRegister = async () => {
-  validateEmail()
+  firebaseError.value = ''
   validatePassword()
   validateConfirmPassword()
-  firebaseError.value = ''
 
-  if (!emailError.value && !passwordError.value && !confirmPasswordError.value) {
-    try {
-      await createUserWithEmailAndPassword(auth, email.value, password.value)
-      showSuccess.value = true
-      email.value = ''
-      password.value = ''
-      confirmPassword.value = ''
-    } catch (err) {
-      firebaseError.value = err.message
+  if (!validateEmailFormat()) return
+  await checkEmailExists()
+  if (emailError.value || passwordError.value || confirmPasswordError.value) return
+
+  try {
+    submitting.value = true
+    const cred = await createUserWithEmailAndPassword(auth, email.value, password.value)
+    const uid = cred.user.uid
+
+    await setDoc(doc(db, 'users', uid), {
+      uid,
+      email: email.value,
+      role: 'user',
+      createdAt: serverTimestamp(),
+    })
+
+    showSuccess.value = true
+    email.value = ''
+    password.value = ''
+    confirmPassword.value = ''
+
+    setTimeout(() => router.replace('/user'), 800)
+  } catch (err) {
+    const code = err.code || ''
+    if (code === 'auth/email-already-in-use') {
+      emailError.value = 'This email is already registered.'
+      firebaseError.value = 'This email is already registered. Try logging in or reset your password.'
+    } else {
+      firebaseError.value = `Registration failed: ${err.message || code}`
     }
+  } finally {
+    submitting.value = false
   }
 }
 </script>

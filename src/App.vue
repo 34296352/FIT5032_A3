@@ -1,10 +1,8 @@
 <template>
-  <div class="container mt-4">
-    <!-- <Header /> -->
+  <div class="container py-4">
     <router-view />
   </div>
 </template>
-
 <script setup>
 
 </script>

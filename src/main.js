@@ -1,12 +1,26 @@
+// src/main.js
 import './assets/main.css'
+import 'bootstrap/dist/css/bootstrap.min.css'
+import 'datatables.net-bs5/css/dataTables.bootstrap5.min.css'
+// import 'datatables.net-responsive-bs5/css/responsive.bootstrap5.min.css'
 
 import { createApp } from 'vue'
 import App from './App.vue'
-// import './style.css' 
-import 'bootstrap/dist/css/bootstrap.min.css'
-import router from './router' // 路由
+import router from './router'
+import emailjs from '@emailjs/browser'
 
-const app = createApp(App)
+import { authReady } from '@/firebase'
 
-app.use(router)       // 注册路由
-app.mount('#app')     // 挂载
+try {
+  emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY)
+} catch (e) {
+  console.warn('emailjs init skipped:', e?.message || e)
+}
+
+;(async () => {
+  try { await authReady } catch {}
+
+  const app = createApp(App)
+  app.use(router)
+  app.mount('#app')
+})()
